@@ -1,0 +1,1 @@
+web: sh -c 'streamlit run csv_cleaner.py --server.port $PORT --server.address 0.0.0.0'
