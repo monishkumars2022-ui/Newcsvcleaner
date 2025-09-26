@@ -1,12 +1,19 @@
 import streamlit as st
 import pandas as pd
 import io
+import os
 from firebase_admin import credentials, auth
 import firebase_admin
 
-# Firebase setup (replace with your service account JSON path)
-cred = credentials.Certificate('path/to/serviceAccountKey.json')
-firebase_admin.initialize_app(cred)
+# Get Firebase key from Render secret
+firebase_key = os.environ.get('FIREBASE_KEY')
+if not firebase_key:
+    st.error("Firebase key not found. Check Render secrets.")
+else:
+    # Convert the JSON string to a credential object
+    import json
+    cred = credentials.Certificate(json.loads(firebase_key))
+    firebase_admin.initialize_app(cred)
 
 def authenticate_user():
     if 'user' not in st.session_state:
