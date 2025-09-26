@@ -1,49 +1,49 @@
-import pandas as pd
 import streamlit as st
+import pandas as pd
 import io
+from firebase_admin import credentials, auth
+import firebase_admin
 
-st.title("Cloud-Based CSV Cleaner")
+# Firebase setup (replace with your service account JSON path)
+cred = credentials.Certificate('path/to/serviceAccountKey.json')
+firebase_admin.initialize_app(cred)
 
-uploaded_file = st.file_uploader("Upload your CSV file", type="csv")
+def authenticate_user():
+    if 'user' not in st.session_state:
+        email = st.text_input("Email")
+        password = st.text_input("Password", type="password")
+        if st.button("Login"):
+            try:
+                user = auth.get_user_by_email(email)
+                st.session_state.user = user.email
+                st.success("Logged in as {}".format(user.email))
+            except auth.AuthError:
+                st.error("Invalid credentials")
+        if st.button("Sign Up"):
+            try:
+                auth.create_user(email=email, password=password)
+                st.success("Account created! Please log in.")
+            except:
+                st.error("Error creating account")
+    return 'user' in st.session_state
 
-if uploaded_file is not None:
-    try:
-        # Read CSV
-        df = pd.read_csv(uploaded_file, encoding='utf-8')
-        st.subheader("Original Data Preview")
+if authenticate_user():
+    st.title("Cloud-Based CSV Cleaner")
+    uploaded_file = st.file_uploader("Upload your CSV file", type="csv")
+    if uploaded_file is not None:
+        df = pd.read_csv(uploaded_file)
+        st.subheader("Original Data")
         st.dataframe(df.head())
-
-        # Cleaning options
-        st.subheader("Cleaning Options")
-        remove_duplicates = st.checkbox("Remove duplicates")
-        handle_missing = st.selectbox("Handle missing values", ["None", "Drop rows", "Fill with mean"])
-
-        # Apply cleaning
-        if remove_duplicates:
+        if st.checkbox("Remove duplicates"):
             df = df.drop_duplicates()
-            st.write(f"Removed {df.duplicated().sum()} duplicate rows.")
-
-        if handle_missing == "Drop rows":
-            before = len(df)
+        if st.selectbox("Missing values", ["None", "Drop", "Fill mean"]) == "Drop":
             df = df.dropna()
-            st.write(f"Dropped {before - len(df)} rows with missing values.")
-        elif handle_missing == "Fill with mean":
-            numeric_cols = df.select_dtypes(include=['number']).columns
-            df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].mean())
-            st.write("Filled missing numeric values with column means.")
-
-        # Display cleaned data
-        st.subheader("Cleaned Data Preview")
+        elif st.selectbox("Missing values", ["None", "Drop", "Fill mean"]) == "Fill mean":
+            df = df.fillna(df.mean())
+        st.subheader("Cleaned Data")
         st.dataframe(df.head())
-
-        # Download cleaned CSV
         csv_buffer = io.StringIO()
         df.to_csv(csv_buffer, index=False)
-        st.download_button(
-            label="Download Cleaned CSV",
-            data=csv_buffer.getvalue(),
-            file_name="cleaned_data.csv",
-            mime="text/csv"
-        )
-    except Exception as e:
-        st.error(f"Error processing file: {str(e)}")
+        st.download_button("Download CSV", csv_buffer.getvalue(), "cleaned_data.csv")
+else:
+    st.write("Please log in or sign up.")
